@@ -1,5 +1,5 @@
 # llvc.cpp
-Hardware-friendly C++ reimplementation of LLVC
+Hardware-friendly C++ reimplementation of LLVC (https://github.com/KoeAI/LLVC)
 
 ## About
 
