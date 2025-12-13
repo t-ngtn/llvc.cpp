@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 llvc.cpp is a C++ reimplementation of LLVC (Low-Latency Low-Resource Voice Conversion), a real-time voice conversion system designed for CPU inference with ~15ms algorithmic latency. The goal is to create a hardware-friendly implementation suitable for embedded systems and native applications.
 
-The reference Python implementation is available at `/Users/tomoya/labo/LLVC` and documented in its CLAUDE.md. The paper is at https://koe.ai/papers/llvc.pdf
+The reference Python implementation is available at https://github.com/KoeAI/LLVC. The paper is at https://koe.ai/papers/llvc.pdf
 
 ## Build Commands
 
