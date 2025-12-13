@@ -1,6 +1,29 @@
 # User-specific files
 TASK.md
 
+# Build directory
+build/
+llvc_cache/
+
+# Inference output
+converted_out/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Model files (large)
+models/*.bin
+models/*.onnx
+models/*.pt
+models/*.pth
+
 # Prerequisites
 *.d
 
