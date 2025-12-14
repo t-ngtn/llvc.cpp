@@ -21,7 +21,8 @@ const std::string DEFAULT_WEIGHTS = "models/llvc_weights.bin";
 void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "Options:\n"
-              << "  -w, --weights <path>   Path to weights file (default: " << DEFAULT_WEIGHTS << ")\n"
+              << "  -m, --model <type>     Model type: llvc (default), llvc_nc\n"
+              << "  -w, --weights <path>   Path to weights file (auto-selected by model type if not specified)\n"
               << "  -i, --input <path>     Path to input WAV file or directory (default: " << DEFAULT_INPUT_DIR << "/)\n"
               << "  -o, --output <path>    Path to output WAV file or directory (default: " << DEFAULT_OUTPUT_DIR << "/)\n"
               << "  -s, --streaming        Use streaming inference\n"
@@ -206,7 +207,9 @@ void process_file(llvc::Net& model, const std::string& input_path, const std::st
 }
 
 int main(int argc, char* argv[]) {
-    std::string weights_path = DEFAULT_WEIGHTS;
+    std::string model_type = "llvc";
+    std::string weights_path;
+    bool weights_specified = false;
     std::string input_path = DEFAULT_INPUT_DIR;
     std::string output_path = DEFAULT_OUTPUT_DIR;
     bool streaming = false;
@@ -214,8 +217,13 @@ int main(int argc, char* argv[]) {
 
     // Parse arguments
     for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "-w") == 0 || std::strcmp(argv[i], "--weights") == 0) {
-            if (++i < argc) weights_path = argv[i];
+        if (std::strcmp(argv[i], "-m") == 0 || std::strcmp(argv[i], "--model") == 0) {
+            if (++i < argc) model_type = argv[i];
+        } else if (std::strcmp(argv[i], "-w") == 0 || std::strcmp(argv[i], "--weights") == 0) {
+            if (++i < argc) {
+                weights_path = argv[i];
+                weights_specified = true;
+            }
         } else if (std::strcmp(argv[i], "-i") == 0 || std::strcmp(argv[i], "--input") == 0) {
             if (++i < argc) input_path = argv[i];
         } else if (std::strcmp(argv[i], "-o") == 0 || std::strcmp(argv[i], "--output") == 0) {
@@ -230,6 +238,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Validate model type
+    if (model_type != "llvc" && model_type != "llvc_nc") {
+        std::cerr << "Error: Invalid model type '" << model_type << "'. Must be 'llvc' or 'llvc_nc'." << std::endl;
+        return 1;
+    }
+
+    // Set default weights path based on model type if not specified
+    if (!weights_specified) {
+        weights_path = (model_type == "llvc_nc") ? "models/llvc_nc_weights.bin" : "models/llvc_weights.bin";
+    }
+
     try {
         // Load weights
         std::cout << "Loading weights from " << weights_path << "..." << std::endl;
@@ -237,8 +256,10 @@ int main(int argc, char* argv[]) {
         weights.load(weights_path);
         std::cout << "Loaded " << weights.size() << " tensors" << std::endl;
 
-        // Create model
+        // Create model with config based on model type
         llvc::Net::Config config;
+        config.convnet_prenet = (model_type != "llvc_nc");
+        std::cout << "Model type: " << model_type << " (convnet_prenet=" << (config.convnet_prenet ? "true" : "false") << ")" << std::endl;
         llvc::Net model(config);
         model.load_weights(weights);
 

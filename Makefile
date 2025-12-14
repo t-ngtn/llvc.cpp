@@ -10,7 +10,7 @@ CMAKE_FLAGS_DEBUG := -DCMAKE_BUILD_TYPE=Debug
 # Number of parallel jobs (use all available cores)
 JOBS := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
-.PHONY: all release debug clean rebuild test infer infer-streaming help
+.PHONY: all release debug clean help
 
 # Default target
 all: release
@@ -32,48 +32,19 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@echo "Build directory cleaned"
 
-# Clean and rebuild
-rebuild: clean release
-
-# Run the inference executable (requires model file)
-test: release
-	@if [ -f $(BUILD_DIR)/llvc_infer ]; then \
-		echo "Running llvc_infer..."; \
-		./$(BUILD_DIR)/llvc_infer; \
-	else \
-		echo "Error: llvc_infer not found. Build first with 'make release'"; \
-		exit 1; \
-	fi
-
-# Run inference on test_wavs/ with default settings (output to converted_out/)
-infer: release
-	@if [ -f $(BUILD_DIR)/llvc_infer ]; then \
-		./$(BUILD_DIR)/llvc_infer; \
-	else \
-		echo "Error: llvc_infer not found. Build first with 'make release'"; \
-		exit 1; \
-	fi
-
-# Run streaming inference on test_wavs/ (output to converted_out/)
-infer-streaming: release
-	@if [ -f $(BUILD_DIR)/llvc_infer ]; then \
-		./$(BUILD_DIR)/llvc_infer -s; \
-	else \
-		echo "Error: llvc_infer not found. Build first with 'make release'"; \
-		exit 1; \
-	fi
-
 # Show help
 help:
 	@echo "llvc.cpp Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make                - Build release version (default)"
-	@echo "  make release        - Build release version"
-	@echo "  make debug          - Build debug version"
-	@echo "  make clean          - Remove build directory"
-	@echo "  make rebuild        - Clean and rebuild"
-	@echo "  make test           - Run the inference executable"
-	@echo "  make infer          - Run inference on test_wavs/ -> converted_out/"
-	@echo "  make infer-streaming - Run streaming inference on test_wavs/"
-	@echo "  make help           - Show this help message"
+	@echo "  make                   - Build release version (default)"
+	@echo "  make release           - Build release version"
+	@echo "  make debug             - Build debug version"
+	@echo "  make clean             - Remove build directory"
+	@echo "  make rebuild           - Clean and rebuild"
+	@echo "  make test              - Run the inference executable"
+	@echo "  make infer             - Run inference on test_wavs/ -> converted_out/"
+	@echo "  make infer-streaming   - Run streaming inference on test_wavs/"
+	@echo "  make infer-nc          - Run inference with llvc_nc model"
+	@echo "  make infer-nc-streaming - Run streaming inference with llvc_nc model"
+	@echo "  make help              - Show this help message"

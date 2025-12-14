@@ -14,19 +14,20 @@ The reference Python implementation is available at https://github.com/KoeAI/LLV
 make              # Build release version (default)
 make debug        # Build debug version with -g -O0
 make clean        # Remove build directory
-make rebuild      # Clean and rebuild
-make infer        # Run inference on test_wavs/ -> converted_out/
-make infer-streaming  # Run streaming inference on test_wavs/
+make help         # Show available commands
 ```
 
 ### Running Inference
 
 ```bash
-# Non-streaming (batch) inference
-./build/llvc_infer -w models/llvc_weights.bin -i input.wav -o output.wav
+# Non-streaming (batch) inference - uses llvc model by default
+./build/llvc_infer -i input.wav -o output.wav
+
+# Use llvc_nc model (no CachedConvNet)
+./build/llvc_infer -m llvc_nc -i input.wav -o output.wav
 
 # Streaming inference
-./build/llvc_infer -w models/llvc_weights.bin -i input.wav -o output.wav -s
+./build/llvc_infer -i input.wav -o output.wav -s
 
 # Process entire directory (default behavior when run without args)
 ./build/llvc_infer   # processes test_wavs/ -> converted_out/
@@ -34,10 +35,10 @@ make infer-streaming  # Run streaming inference on test_wavs/
 
 ### Model Setup
 
-Download and convert the pretrained model:
+Download and convert the pretrained models:
 ```bash
 pip install torch huggingface_hub numpy
-python scripts/download_model.py
+python scripts/download_model.py  # Downloads both llvc and llvc_nc models
 ```
 
 ## Code Architecture

@@ -38,39 +38,57 @@ make
 
 ### 1. Download and Convert Model
 
-First, download the pretrained model and convert to C++ format:
+First, download the pretrained models and convert to C++ format:
 
 ```bash
 python scripts/download_model.py
 ```
 
-This script downloads the model from HuggingFace Hub and converts it to C++ format.
+This downloads both model variants (llvc and llvc_nc) from HuggingFace Hub and converts them to C++ format.
 Requires: `pip install torch huggingface_hub numpy`
 
 ### 2. Run Inference
 
 ```bash
-# Non-streaming inference
-./build/llvc_infer -w models/llvc_weights.bin -i input.wav -o output.wav
+# Process test_wavs/ directory with default settings (llvc model)
+# Output goes to converted_out/
+./build/llvc_infer
+
+# Single file inference
+./build/llvc_infer -i input.wav -o output.wav
+
+# Use llvc_nc model (no CachedConvNet)
+./build/llvc_infer -m llvc_nc -i input.wav -o output.wav
 
 # Streaming inference
-./build/llvc_infer -w models/llvc_weights.bin -i input.wav -o output.wav -s
+./build/llvc_infer -i input.wav -o output.wav -s
 
 # Streaming with larger chunks (higher latency, better performance)
-./build/llvc_infer -w models/llvc_weights.bin -i input.wav -o output.wav -s -n 2
+./build/llvc_infer -i input.wav -o output.wav -s -n 2
 ```
 
 ### Command Line Options
 
 ```
 Options:
-  -w, --weights <path>   Path to weights file (required)
-  -i, --input <path>     Path to input WAV file (required)
-  -o, --output <path>    Path to output WAV file (required)
+  -m, --model <type>     Model type: llvc (default), llvc_nc
+  -w, --weights <path>   Path to weights file (auto-selected by model type if not specified)
+  -i, --input <path>     Path to input WAV file or directory
+  -o, --output <path>    Path to output WAV file or directory
   -s, --streaming        Use streaming inference
   -n, --chunk-factor <n> Chunk factor for streaming (default: 1)
   -h, --help             Show this help
 ```
+
+### Model Variants
+
+This implementation supports two model variants:
+
+- **llvc** (default): Uses CachedConvNet preprocessing for enhanced audio quality
+- **llvc_nc**: No CachedConvNet - lighter model with slightly different characteristics
+
+Both variants share the same core architecture (encoder, decoder, transformer) but differ in preprocessing.
+
 
 ## Model Architecture
 
