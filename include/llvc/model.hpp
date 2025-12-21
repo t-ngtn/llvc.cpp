@@ -11,6 +11,27 @@
 
 namespace llvc {
 
+// Debug outputs from MaskNet
+struct MaskNetDebug {
+    Tensor encoder_out;     // Encoder output [B, enc_dim, T]
+    Tensor le;              // Label * encoder [B, enc_dim, T]
+    Tensor proj_e2d_e_out;  // Projected encoder [B, dec_dim, T]
+    Tensor proj_e2d_l_out;  // Projected label*enc [B, dec_dim, T]
+    Tensor decoder_out;     // Decoder output [B, dec_dim, T]
+    Tensor proj_d2e_out;    // Projected back [B, enc_dim, T]
+    Tensor mask;            // Final mask (after skip connection) [B, enc_dim, T]
+};
+
+// Debug outputs from Net::forward_stream
+struct DebugOutputs {
+    Tensor in_conv_out;     // in_conv + ReLU output [B, enc_dim, T]
+    Tensor label_emb;       // Label embedding [B, enc_dim]
+    MaskNetDebug masknet;   // MaskNet debug outputs
+    Tensor masked;          // h * mask [B, enc_dim, T]
+    Tensor with_buf;        // Concatenated with out_buf [B, enc_dim, T+out_buf_len]
+    Tensor out;             // Final output [B, 1, T]
+};
+
 // MaskNet - generates time-domain mask
 class MaskNet {
 public:
@@ -28,9 +49,9 @@ public:
     // Forward pass
     // x: [B, C, T] - input features
     // l: [B, C] - label embedding
-    // Returns: mask [B, C, T], updated enc_buf, updated dec_buf
-    std::tuple<Tensor, Tensor, Tensor> forward(const Tensor& x, const Tensor& l,
-                                                Tensor& enc_buf, Tensor& dec_buf) const;
+    // Returns: mask [B, C, T], updated enc_buf, updated dec_buf, debug outputs
+    std::tuple<Tensor, Tensor, Tensor, MaskNetDebug> forward(const Tensor& x, const Tensor& l,
+                                                              Tensor& enc_buf, Tensor& dec_buf) const;
 
 private:
     size_t enc_dim_;
@@ -107,7 +128,8 @@ public:
     Tensor forward(const Tensor& x) const;
 
     // Forward pass (streaming) - processes one chunk
-    std::pair<Tensor, Buffers> forward_stream(const Tensor& x, Buffers& bufs) const;
+    // Returns: {output, buffers, debug_outputs}
+    std::tuple<Tensor, Buffers, DebugOutputs> forward_stream(const Tensor& x, Buffers& bufs) const;
 
     size_t L() const { return config_.L; }
     size_t dec_chunk_size() const { return config_.dec_chunk_size; }

@@ -1,10 +1,12 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <vector>
 #include <algorithm>
+#include <iomanip>
 
 #include "llvc/tensor.hpp"
 #include "llvc/audio.hpp"
@@ -27,7 +29,22 @@ void print_usage(const char* prog) {
               << "  -o, --output <path>    Path to output WAV file or directory (default: " << DEFAULT_OUTPUT_DIR << "/)\n"
               << "  -s, --streaming        Use streaming inference\n"
               << "  -n, --chunk-factor <n> Chunk factor for streaming (default: 1)\n"
+              << "  -d, --dump <dir>       Dump first chunk I/O to text files for CSIM (streaming only)\n"
               << "  -h, --help             Show this help\n";
+}
+
+// Save tensor data to text file (1 value per line)
+void dump_tensor_to_file(const std::string& path, const llvc::Tensor& tensor) {
+    std::ofstream ofs(path);
+    if (!ofs) {
+        std::cerr << "Warning: Could not open " << path << " for writing" << std::endl;
+        return;
+    }
+    ofs << std::setprecision(9);
+    for (size_t i = 0; i < tensor.size(); ++i) {
+        ofs << tensor.data()[i] << "\n";
+    }
+    std::cout << "Dumped " << tensor.size() << " values to " << path << std::endl;
 }
 
 std::vector<std::string> get_wav_files(const std::string& dir) {
@@ -47,7 +64,7 @@ std::vector<std::string> get_wav_files(const std::string& dir) {
 
 // Process a single audio file
 void process_file(llvc::Net& model, const std::string& input_path, const std::string& output_path,
-                  bool streaming, int chunk_factor) {
+                  bool streaming, int chunk_factor, const std::string& dump_dir = "") {
     // Load audio
     std::cout << "Loading audio from " << input_path << "..." << std::endl;
     uint32_t sample_rate;
@@ -129,12 +146,37 @@ void process_file(llvc::Net& model, const std::string& input_path, const std::st
             }
 
             auto start = std::chrono::high_resolution_clock::now();
-            auto [out, new_bufs] = model.forward_stream(input, bufs);
+            auto [out, new_bufs, dbg] = model.forward_stream(input, bufs);
             bufs = new_bufs;
             auto end = std::chrono::high_resolution_clock::now();
 
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             times.push_back(time_ms);
+
+            // Dump first chunk I/O for CSIM
+            if (i == 0 && !dump_dir.empty()) {
+                if (!fs::exists(dump_dir)) {
+                    fs::create_directories(dump_dir);
+                }
+                // Input/Output
+                dump_tensor_to_file((fs::path(dump_dir) / "00_input.txt").string(), input);
+                dump_tensor_to_file((fs::path(dump_dir) / "01_in_conv_out.txt").string(), dbg.in_conv_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "02_label_emb.txt").string(), dbg.label_emb);
+
+                // MaskNet internals
+                dump_tensor_to_file((fs::path(dump_dir) / "03_encoder_out.txt").string(), dbg.masknet.encoder_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "04_le.txt").string(), dbg.masknet.le);
+                dump_tensor_to_file((fs::path(dump_dir) / "05_proj_e2d_e_out.txt").string(), dbg.masknet.proj_e2d_e_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "06_proj_e2d_l_out.txt").string(), dbg.masknet.proj_e2d_l_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "07_decoder_out.txt").string(), dbg.masknet.decoder_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "08_proj_d2e_out.txt").string(), dbg.masknet.proj_d2e_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "09_mask.txt").string(), dbg.masknet.mask);
+
+                // Post-mask
+                dump_tensor_to_file((fs::path(dump_dir) / "10_masked.txt").string(), dbg.masked);
+                dump_tensor_to_file((fs::path(dump_dir) / "11_with_buf.txt").string(), dbg.with_buf);
+                dump_tensor_to_file((fs::path(dump_dir) / "12_output.txt").string(), dbg.out);
+            }
 
             // Convert to 1D
             llvc::Tensor out_1d(out.dim(2));
@@ -214,6 +256,7 @@ int main(int argc, char* argv[]) {
     std::string output_path = DEFAULT_OUTPUT_DIR;
     bool streaming = false;
     int chunk_factor = 1;
+    std::string dump_dir;
 
     // Parse arguments
     for (int i = 1; i < argc; ++i) {
@@ -232,6 +275,8 @@ int main(int argc, char* argv[]) {
             streaming = true;
         } else if (std::strcmp(argv[i], "-n") == 0 || std::strcmp(argv[i], "--chunk-factor") == 0) {
             if (++i < argc) chunk_factor = std::atoi(argv[i]);
+        } else if (std::strcmp(argv[i], "-d") == 0 || std::strcmp(argv[i], "--dump") == 0) {
+            if (++i < argc) dump_dir = argv[i];
         } else if (std::strcmp(argv[i], "-h") == 0 || std::strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0]);
             return 0;
@@ -242,6 +287,12 @@ int main(int argc, char* argv[]) {
     if (model_type != "llvc" && model_type != "llvc_nc") {
         std::cerr << "Error: Invalid model type '" << model_type << "'. Must be 'llvc' or 'llvc_nc'." << std::endl;
         return 1;
+    }
+
+    // Warn if dump is used without streaming
+    if (!dump_dir.empty() && !streaming) {
+        std::cerr << "Warning: --dump requires --streaming mode. Enabling streaming mode." << std::endl;
+        streaming = true;
     }
 
     // Set default weights path based on model type if not specified
@@ -293,7 +344,8 @@ int main(int argc, char* argv[]) {
                 std::string out_file = (fs::path(output_path) / filename).string();
 
                 std::cout << "\n[" << (i + 1) << "/" << wav_files.size() << "] " << filename << std::endl;
-                process_file(model, in_file, out_file, streaming, chunk_factor);
+                // Only dump for first file
+                process_file(model, in_file, out_file, streaming, chunk_factor, (i == 0) ? dump_dir : "");
             }
 
             std::cout << "\n" << std::string(50, '=') << std::endl;
@@ -316,7 +368,7 @@ int main(int argc, char* argv[]) {
                 final_output = (fs::path(output_path) / filename).string();
             }
 
-            process_file(model, input_path, final_output, streaming, chunk_factor);
+            process_file(model, input_path, final_output, streaming, chunk_factor, dump_dir);
         }
 
     } catch (const std::exception& e) {

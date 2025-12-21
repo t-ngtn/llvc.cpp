@@ -44,15 +44,18 @@ std::pair<Tensor, Tensor> MaskNet::init_buffers(size_t batch_size) const {
     return {enc_buf, dec_buf};
 }
 
-std::tuple<Tensor, Tensor, Tensor> MaskNet::forward(const Tensor& x, const Tensor& l,
-                                                    Tensor& enc_buf, Tensor& dec_buf) const {
+std::tuple<Tensor, Tensor, Tensor, MaskNetDebug> MaskNet::forward(const Tensor& x, const Tensor& l,
+                                                                   Tensor& enc_buf, Tensor& dec_buf) const {
     size_t B = x.dim(0);
     size_t C = x.dim(1);
     size_t T = x.dim(2);
 
+    MaskNetDebug dbg;
+
     // Encode input
     auto [e, enc_buf_out] = encoder_.forward(x, enc_buf);
     enc_buf = enc_buf_out;
+    dbg.encoder_out = e;
 
     // Label integration: l.unsqueeze(2) * e
     Tensor le(B, C, T);
@@ -63,26 +66,32 @@ std::tuple<Tensor, Tensor, Tensor> MaskNet::forward(const Tensor& x, const Tenso
             }
         }
     }
+    dbg.le = le;
 
     Tensor m;
     if (proj_) {
         // Project to decoder dimensions
         Tensor e_proj = proj_e2d_e_.forward(e);
         relu_inplace(e_proj);
+        dbg.proj_e2d_e_out = e_proj;
 
         Tensor l_proj = proj_e2d_l_.forward(le);
         relu_inplace(l_proj);
+        dbg.proj_e2d_l_out = l_proj;
 
         // Cross-attention
         auto [m_dec, dec_buf_out] = decoder_.forward(l_proj, e_proj, dec_buf);
         dec_buf = dec_buf_out;
+        dbg.decoder_out = m_dec;
 
         // Project back to encoder dimensions
         m = proj_d2e_.forward(m_dec);
         relu_inplace(m);
+        dbg.proj_d2e_out = m;
     } else {
         auto [m_dec, dec_buf_out] = decoder_.forward(le, e, dec_buf);
         dec_buf = dec_buf_out;
+        dbg.decoder_out = m_dec;
         m = m_dec;
     }
 
@@ -96,8 +105,9 @@ std::tuple<Tensor, Tensor, Tensor> MaskNet::forward(const Tensor& x, const Tenso
             }
         }
     }
+    dbg.mask = m;
 
-    return {m, enc_buf, dec_buf};
+    return {m, enc_buf, dec_buf, dbg};
 }
 
 // ============================================================================
@@ -283,7 +293,8 @@ Tensor Net::forward(const Tensor& x) const {
     Tensor l = label_embedding_.forward(label);
 
     // Mask generation
-    auto [m, enc_buf, dec_buf] = mask_gen_.forward(h, l, bufs.enc_buf, bufs.dec_buf);
+    auto [m, enc_buf, dec_buf, _dbg] = mask_gen_.forward(h, l, bufs.enc_buf, bufs.dec_buf);
+    (void)_dbg;  // Unused in non-streaming mode
 
     // Apply mask
     Tensor masked = h * m;
@@ -303,8 +314,9 @@ Tensor Net::forward(const Tensor& x) const {
     return out;
 }
 
-std::pair<Tensor, Net::Buffers> Net::forward_stream(const Tensor& x, Buffers& bufs) const {
+std::tuple<Tensor, Net::Buffers, DebugOutputs> Net::forward_stream(const Tensor& x, Buffers& bufs) const {
     size_t B = x.dim(0);
+    DebugOutputs dbg;
 
     // ConvNet preprocessing
     Tensor processed = x;
@@ -320,22 +332,27 @@ std::pair<Tensor, Net::Buffers> Net::forward_stream(const Tensor& x, Buffers& bu
     // Input conv + ReLU
     Tensor h = in_conv_.forward(processed);
     relu_inplace(h);
+    dbg.in_conv_out = h;
 
     // Label embedding (zeros)
     Tensor label(B, 1);
     label.fill(0.0f);
     Tensor l = label_embedding_.forward(label);
+    dbg.label_emb = l;
 
     // Mask generation
-    auto [m, enc_buf, dec_buf] = mask_gen_.forward(h, l, bufs.enc_buf, bufs.dec_buf);
+    auto [m, enc_buf, dec_buf, masknet_dbg] = mask_gen_.forward(h, l, bufs.enc_buf, bufs.dec_buf);
     bufs.enc_buf = enc_buf;
     bufs.dec_buf = dec_buf;
+    dbg.masknet = masknet_dbg;
 
     // Apply mask
     Tensor masked = h * m;
+    dbg.masked = masked;
 
     // Concatenate with output buffer
     Tensor with_buf = Tensor::cat_last(bufs.out_buf, masked);
+    dbg.with_buf = with_buf;
 
     // Update output buffer
     size_t T_out = masked.dim(2);
@@ -350,8 +367,9 @@ std::pair<Tensor, Net::Buffers> Net::forward_stream(const Tensor& x, Buffers& bu
     // Output conv + Tanh
     Tensor out = out_conv_.forward(with_buf);
     tanh_inplace(out);
+    dbg.out = out;
 
-    return {out, bufs};
+    return {out, bufs, dbg};
 }
 
 } // namespace llvc
