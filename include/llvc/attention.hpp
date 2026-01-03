@@ -7,6 +7,7 @@
 #include "weights.hpp"
 #include <cmath>
 #include <vector>
+#include <tuple>
 
 namespace llvc {
 
@@ -62,6 +63,12 @@ private:
     Tensor output_projection(const Tensor& x) const;
 };
 
+// Debug outputs from CausalTransformerDecoderLayer
+struct DecLayerDebug {
+    Tensor sa_out;  // Self-Attention output [B, chunk_size, dec_dim]
+    Tensor ca_out;  // Cross-Attention output [B, chunk_size, dec_dim]
+};
+
 // Causal Transformer Decoder Layer
 class CausalTransformerDecoderLayer {
 public:
@@ -74,8 +81,8 @@ public:
     // tgt: [B, T_tgt, D] - target sequence
     // memory: [B, T_mem, D] - encoder output
     // chunk_size: number of new tokens to process
-    // Returns: output for last chunk_size tokens
-    Tensor forward(const Tensor& tgt, const Tensor& memory, size_t chunk_size) const;
+    // Returns: {output for last chunk_size tokens, debug info}
+    std::pair<Tensor, DecLayerDebug> forward(const Tensor& tgt, const Tensor& memory, size_t chunk_size) const;
 
 private:
     size_t d_model_;
@@ -95,6 +102,12 @@ private:
     Tensor ffn_forward(const Tensor& x) const;
 };
 
+// Debug outputs from CausalTransformerDecoder
+struct DecDebug {
+    Tensor sa_out;  // First layer, first chunk SA output [B, chunk_size, dec_dim]
+    Tensor ca_out;  // First layer, first chunk CA output [B, chunk_size, dec_dim]
+};
+
 // Causal Transformer Decoder
 class CausalTransformerDecoder {
 public:
@@ -112,8 +125,8 @@ public:
     // tgt: [B, C, T] - target features
     // mem: [B, C, T] - encoder output
     // ctx_buf: [B, num_layers+1, ctx_len, model_dim]
-    // Returns: output [B, C, T] and updated context
-    std::pair<Tensor, Tensor> forward(const Tensor& tgt, const Tensor& mem, Tensor& ctx_buf) const;
+    // Returns: {output [B, C, T], updated context, debug info}
+    std::tuple<Tensor, Tensor, DecDebug> forward(const Tensor& tgt, const Tensor& mem, Tensor& ctx_buf) const;
 
 private:
     size_t model_dim_;

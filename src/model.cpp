@@ -80,18 +80,57 @@ std::tuple<Tensor, Tensor, Tensor, MaskNetDebug> MaskNet::forward(const Tensor& 
         dbg.proj_e2d_l_out = l_proj;
 
         // Cross-attention
-        auto [m_dec, dec_buf_out] = decoder_.forward(l_proj, e_proj, dec_buf);
+        auto [m_dec, dec_buf_out, dec_dbg] = decoder_.forward(l_proj, e_proj, dec_buf);
         dec_buf = dec_buf_out;
         dbg.decoder_out = m_dec;
+
+        // Convert SA/CA outputs from [B, chunk_size, dec_dim] to [B, dec_dim, chunk_size]
+        if (dec_dbg.sa_out.size() > 0) {
+            size_t B_dbg = dec_dbg.sa_out.dim(0);
+            size_t T_dbg = dec_dbg.sa_out.dim(1);
+            size_t D_dbg = dec_dbg.sa_out.dim(2);
+            Tensor sa_perm(B_dbg, D_dbg, T_dbg);
+            Tensor ca_perm(B_dbg, D_dbg, T_dbg);
+            for (size_t b = 0; b < B_dbg; ++b) {
+                for (size_t t = 0; t < T_dbg; ++t) {
+                    for (size_t d = 0; d < D_dbg; ++d) {
+                        sa_perm(b, d, t) = dec_dbg.sa_out(b, t, d);
+                        ca_perm(b, d, t) = dec_dbg.ca_out(b, t, d);
+                    }
+                }
+            }
+            dbg.sa_out = sa_perm;
+            dbg.ca_out = ca_perm;
+        }
 
         // Project back to encoder dimensions
         m = proj_d2e_.forward(m_dec);
         relu_inplace(m);
         dbg.proj_d2e_out = m;
     } else {
-        auto [m_dec, dec_buf_out] = decoder_.forward(le, e, dec_buf);
+        auto [m_dec, dec_buf_out, dec_dbg] = decoder_.forward(le, e, dec_buf);
         dec_buf = dec_buf_out;
         dbg.decoder_out = m_dec;
+
+        // Convert SA/CA outputs from [B, chunk_size, dec_dim] to [B, dec_dim, chunk_size]
+        if (dec_dbg.sa_out.size() > 0) {
+            size_t B_dbg = dec_dbg.sa_out.dim(0);
+            size_t T_dbg = dec_dbg.sa_out.dim(1);
+            size_t D_dbg = dec_dbg.sa_out.dim(2);
+            Tensor sa_perm(B_dbg, D_dbg, T_dbg);
+            Tensor ca_perm(B_dbg, D_dbg, T_dbg);
+            for (size_t b = 0; b < B_dbg; ++b) {
+                for (size_t t = 0; t < T_dbg; ++t) {
+                    for (size_t d = 0; d < D_dbg; ++d) {
+                        sa_perm(b, d, t) = dec_dbg.sa_out(b, t, d);
+                        ca_perm(b, d, t) = dec_dbg.ca_out(b, t, d);
+                    }
+                }
+            }
+            dbg.sa_out = sa_perm;
+            dbg.ca_out = ca_perm;
+        }
+
         m = m_dec;
     }
 

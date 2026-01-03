@@ -280,9 +280,11 @@ void CausalTransformerDecoderLayer::load_weights(const Weights& weights, const s
     ff_dim_ = linear1_weight_.dim(0);
 }
 
-Tensor CausalTransformerDecoderLayer::forward(const Tensor& tgt, const Tensor& memory, size_t chunk_size) const {
+std::pair<Tensor, DecLayerDebug> CausalTransformerDecoderLayer::forward(const Tensor& tgt, const Tensor& memory, size_t chunk_size) const {
     size_t B = tgt.dim(0);
     size_t T_tgt = tgt.dim(1);
+
+    DecLayerDebug dbg;
 
     // Get last chunk_size tokens
     Tensor tgt_last(B, chunk_size, d_model_);
@@ -296,6 +298,7 @@ Tensor CausalTransformerDecoderLayer::forward(const Tensor& tgt, const Tensor& m
 
     // Self-attention
     Tensor sa_out = self_attn_.forward(tgt_last, tgt, tgt);
+    dbg.sa_out = sa_out;
 
     // Residual + LayerNorm
     Tensor out1(B, chunk_size, d_model_);
@@ -310,6 +313,7 @@ Tensor CausalTransformerDecoderLayer::forward(const Tensor& tgt, const Tensor& m
 
     // Cross-attention
     Tensor ca_out = cross_attn_.forward(out1, memory, memory);
+    dbg.ca_out = ca_out;
 
     // Residual + LayerNorm
     Tensor out2(B, chunk_size, d_model_);
@@ -336,7 +340,7 @@ Tensor CausalTransformerDecoderLayer::forward(const Tensor& tgt, const Tensor& m
     }
     out3 = apply_layer_norm(out3, norm3_);
 
-    return out3;
+    return {out3, dbg};
 }
 
 Tensor CausalTransformerDecoderLayer::apply_layer_norm(const Tensor& x, const LayerNorm& norm) const {
@@ -432,10 +436,12 @@ Tensor CausalTransformerDecoder::init_ctx_buf(size_t batch_size) const {
     return Tensor(batch_size, num_layers_ + 1, ctx_len_, model_dim_);
 }
 
-std::pair<Tensor, Tensor> CausalTransformerDecoder::forward(const Tensor& tgt, const Tensor& mem, Tensor& ctx_buf) const {
+std::tuple<Tensor, Tensor, DecDebug> CausalTransformerDecoder::forward(const Tensor& tgt, const Tensor& mem, Tensor& ctx_buf) const {
     size_t B = tgt.dim(0);
     size_t C = tgt.dim(1);
     size_t T = tgt.dim(2);
+
+    DecDebug dbg;
 
     // Mod pad to chunk_size
     size_t mod = (T % chunk_size_ != 0) ? chunk_size_ - (T % chunk_size_) : 0;
@@ -541,7 +547,13 @@ std::pair<Tensor, Tensor> CausalTransformerDecoder::forward(const Tensor& tgt, c
             }
 
             // Apply decoder layer
-            Tensor out_chunk = layers_[layer].forward(tgt_chunk, mem_chunk, chunk_size_);
+            auto [out_chunk, layer_dbg] = layers_[layer].forward(tgt_chunk, mem_chunk, chunk_size_);
+
+            // Capture debug output from first layer, first chunk
+            if (layer == 0 && chunk == 0) {
+                dbg.sa_out = layer_dbg.sa_out;
+                dbg.ca_out = layer_dbg.ca_out;
+            }
 
             // Store output
             for (size_t b = 0; b < B; ++b) {
@@ -566,7 +578,7 @@ std::pair<Tensor, Tensor> CausalTransformerDecoder::forward(const Tensor& tgt, c
         }
     }
 
-    return {result, ctx_buf};
+    return {result, ctx_buf, dbg};
 }
 
 Tensor CausalTransformerDecoder::causal_unfold(const Tensor& x) const {
