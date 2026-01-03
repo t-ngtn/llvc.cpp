@@ -65,8 +65,10 @@ private:
 
 // Debug outputs from CausalTransformerDecoderLayer
 struct DecLayerDebug {
-    Tensor sa_out;  // Self-Attention output [B, chunk_size, dec_dim]
-    Tensor ca_out;  // Cross-Attention output [B, chunk_size, dec_dim]
+    Tensor sa_out;     // Self-Attention output [B, chunk_size, dec_dim] (before Residual+LN)
+    Tensor ca_out;     // Cross-Attention output [B, chunk_size, dec_dim] (before Residual+LN)
+    Tensor sa_ln_out;  // SA + Residual + LN1 output [B, chunk_size, dec_dim] (for HLS verification)
+    Tensor ca_ln_out;  // CA + Residual + LN2 output [B, chunk_size, dec_dim] (for HLS verification)
 };
 
 // Causal Transformer Decoder Layer
@@ -104,8 +106,10 @@ private:
 
 // Debug outputs from CausalTransformerDecoder
 struct DecDebug {
-    Tensor sa_out;  // First layer, first chunk SA output [B, chunk_size, dec_dim]
-    Tensor ca_out;  // First layer, first chunk CA output [B, chunk_size, dec_dim]
+    Tensor sa_out;     // First layer, first chunk SA output [B, chunk_size, dec_dim] (before Residual+LN)
+    Tensor ca_out;     // First layer, first chunk CA output [B, chunk_size, dec_dim] (before Residual+LN)
+    Tensor sa_ln_out;  // SA + Residual + LN1 output [B, chunk_size, dec_dim] (for HLS verification)
+    Tensor ca_ln_out;  // CA + Residual + LN2 output [B, chunk_size, dec_dim] (for HLS verification)
 };
 
 // Causal Transformer Decoder

@@ -91,16 +91,22 @@ std::tuple<Tensor, Tensor, Tensor, MaskNetDebug> MaskNet::forward(const Tensor& 
             size_t D_dbg = dec_dbg.sa_out.dim(2);
             Tensor sa_perm(B_dbg, D_dbg, T_dbg);
             Tensor ca_perm(B_dbg, D_dbg, T_dbg);
+            Tensor sa_ln_perm(B_dbg, D_dbg, T_dbg);
+            Tensor ca_ln_perm(B_dbg, D_dbg, T_dbg);
             for (size_t b = 0; b < B_dbg; ++b) {
                 for (size_t t = 0; t < T_dbg; ++t) {
                     for (size_t d = 0; d < D_dbg; ++d) {
                         sa_perm(b, d, t) = dec_dbg.sa_out(b, t, d);
                         ca_perm(b, d, t) = dec_dbg.ca_out(b, t, d);
+                        sa_ln_perm(b, d, t) = dec_dbg.sa_ln_out(b, t, d);
+                        ca_ln_perm(b, d, t) = dec_dbg.ca_ln_out(b, t, d);
                     }
                 }
             }
             dbg.sa_out = sa_perm;
             dbg.ca_out = ca_perm;
+            dbg.sa_ln_out = sa_ln_perm;
+            dbg.ca_ln_out = ca_ln_perm;
         }
 
         // Project back to encoder dimensions
@@ -119,16 +125,22 @@ std::tuple<Tensor, Tensor, Tensor, MaskNetDebug> MaskNet::forward(const Tensor& 
             size_t D_dbg = dec_dbg.sa_out.dim(2);
             Tensor sa_perm(B_dbg, D_dbg, T_dbg);
             Tensor ca_perm(B_dbg, D_dbg, T_dbg);
+            Tensor sa_ln_perm(B_dbg, D_dbg, T_dbg);
+            Tensor ca_ln_perm(B_dbg, D_dbg, T_dbg);
             for (size_t b = 0; b < B_dbg; ++b) {
                 for (size_t t = 0; t < T_dbg; ++t) {
                     for (size_t d = 0; d < D_dbg; ++d) {
                         sa_perm(b, d, t) = dec_dbg.sa_out(b, t, d);
                         ca_perm(b, d, t) = dec_dbg.ca_out(b, t, d);
+                        sa_ln_perm(b, d, t) = dec_dbg.sa_ln_out(b, t, d);
+                        ca_ln_perm(b, d, t) = dec_dbg.ca_ln_out(b, t, d);
                     }
                 }
             }
             dbg.sa_out = sa_perm;
             dbg.ca_out = ca_perm;
+            dbg.sa_ln_out = sa_ln_perm;
+            dbg.ca_ln_out = ca_ln_perm;
         }
 
         m = m_dec;

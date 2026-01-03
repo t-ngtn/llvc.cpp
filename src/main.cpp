@@ -168,8 +168,8 @@ void process_file(llvc::Net& model, const std::string& input_path, const std::st
                 dump_tensor_to_file((fs::path(dump_dir) / "04_le.txt").string(), dbg.masknet.le);
                 dump_tensor_to_file((fs::path(dump_dir) / "05_proj_e2d_e_out.txt").string(), dbg.masknet.proj_e2d_e_out);
                 dump_tensor_to_file((fs::path(dump_dir) / "06_proj_e2d_l_out.txt").string(), dbg.masknet.proj_e2d_l_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "06a_sa_out.txt").string(), dbg.masknet.sa_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "06b_ca_out.txt").string(), dbg.masknet.ca_out);
+                dump_tensor_to_file((fs::path(dump_dir) / "06a_sa_out.txt").string(), dbg.masknet.sa_ln_out);  // SA+Residual+LN1 (for HLS)
+                dump_tensor_to_file((fs::path(dump_dir) / "06b_ca_out.txt").string(), dbg.masknet.ca_ln_out);  // CA+Residual+LN2 (for HLS)
                 dump_tensor_to_file((fs::path(dump_dir) / "07_decoder_out.txt").string(), dbg.masknet.decoder_out);
                 dump_tensor_to_file((fs::path(dump_dir) / "08_proj_d2e_out.txt").string(), dbg.masknet.proj_d2e_out);
                 dump_tensor_to_file((fs::path(dump_dir) / "09_mask.txt").string(), dbg.masknet.mask);

@@ -310,6 +310,7 @@ std::pair<Tensor, DecLayerDebug> CausalTransformerDecoderLayer::forward(const Te
         }
     }
     out1 = apply_layer_norm(out1, norm1_);
+    dbg.sa_ln_out = out1;  // SA + Residual + LN1 output for HLS verification
 
     // Cross-attention
     Tensor ca_out = cross_attn_.forward(out1, memory, memory);
@@ -325,6 +326,7 @@ std::pair<Tensor, DecLayerDebug> CausalTransformerDecoderLayer::forward(const Te
         }
     }
     out2 = apply_layer_norm(out2, norm2_);
+    dbg.ca_ln_out = out2;  // CA + Residual + LN2 output for HLS verification
 
     // FFN: linear1 -> ReLU -> linear2
     Tensor ff_out = ffn_forward(out2);
@@ -553,6 +555,8 @@ std::tuple<Tensor, Tensor, DecDebug> CausalTransformerDecoder::forward(const Ten
             if (layer == 0 && chunk == 0) {
                 dbg.sa_out = layer_dbg.sa_out;
                 dbg.ca_out = layer_dbg.ca_out;
+                dbg.sa_ln_out = layer_dbg.sa_ln_out;
+                dbg.ca_ln_out = layer_dbg.ca_ln_out;
             }
 
             // Store output

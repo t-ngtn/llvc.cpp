@@ -17,8 +17,10 @@ struct MaskNetDebug {
     Tensor le;              // Label * encoder [B, enc_dim, T]
     Tensor proj_e2d_e_out;  // Projected encoder [B, dec_dim, T]
     Tensor proj_e2d_l_out;  // Projected label*enc [B, dec_dim, T]
-    Tensor sa_out;          // Self-Attention output [B, dec_dim, chunk_size]
-    Tensor ca_out;          // Cross-Attention output [B, dec_dim, chunk_size]
+    Tensor sa_out;          // Self-Attention output [B, dec_dim, chunk_size] (before Residual+LN)
+    Tensor ca_out;          // Cross-Attention output [B, dec_dim, chunk_size] (before Residual+LN)
+    Tensor sa_ln_out;       // SA + Residual + LN1 output [B, dec_dim, chunk_size] (for HLS verification)
+    Tensor ca_ln_out;       // CA + Residual + LN2 output [B, dec_dim, chunk_size] (for HLS verification)
     Tensor decoder_out;     // Decoder output [B, dec_dim, T]
     Tensor proj_d2e_out;    // Projected back [B, enc_dim, T]
     Tensor mask;            // Final mask (after skip connection) [B, enc_dim, T]
