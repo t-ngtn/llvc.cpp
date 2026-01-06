@@ -153,31 +153,32 @@ void process_file(llvc::Net& model, const std::string& input_path, const std::st
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             times.push_back(time_ms);
 
-            // Dump first chunk I/O for CSIM
-            if (i == 0 && !dump_dir.empty()) {
-                if (!fs::exists(dump_dir)) {
-                    fs::create_directories(dump_dir);
+            // Dump first 2 chunks I/O for CSIM
+            if (i < 2 && !dump_dir.empty()) {
+                std::string chunk_dump_dir = (fs::path(dump_dir) / ("chunk" + std::to_string(i))).string();
+                if (!fs::exists(chunk_dump_dir)) {
+                    fs::create_directories(chunk_dump_dir);
                 }
                 // Input/Output
-                dump_tensor_to_file((fs::path(dump_dir) / "00_input.txt").string(), input);
-                dump_tensor_to_file((fs::path(dump_dir) / "01_in_conv_out.txt").string(), dbg.in_conv_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "02_label_emb.txt").string(), dbg.label_emb);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "00_input.txt").string(), input);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "01_in_conv_out.txt").string(), dbg.in_conv_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "02_label_emb.txt").string(), dbg.label_emb);
 
                 // MaskNet internals
-                dump_tensor_to_file((fs::path(dump_dir) / "03_encoder_out.txt").string(), dbg.masknet.encoder_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "04_le.txt").string(), dbg.masknet.le);
-                dump_tensor_to_file((fs::path(dump_dir) / "05_proj_e2d_e_out.txt").string(), dbg.masknet.proj_e2d_e_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "06_proj_e2d_l_out.txt").string(), dbg.masknet.proj_e2d_l_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "06a_sa_out.txt").string(), dbg.masknet.sa_ln_out);  // SA+Residual+LN1 (for HLS)
-                dump_tensor_to_file((fs::path(dump_dir) / "06b_ca_out.txt").string(), dbg.masknet.ca_ln_out);  // CA+Residual+LN2 (for HLS)
-                dump_tensor_to_file((fs::path(dump_dir) / "07_decoder_out.txt").string(), dbg.masknet.decoder_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "08_proj_d2e_out.txt").string(), dbg.masknet.proj_d2e_out);
-                dump_tensor_to_file((fs::path(dump_dir) / "09_mask.txt").string(), dbg.masknet.mask);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "03_encoder_out.txt").string(), dbg.masknet.encoder_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "04_le.txt").string(), dbg.masknet.le);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "05_proj_e2d_e_out.txt").string(), dbg.masknet.proj_e2d_e_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "06_proj_e2d_l_out.txt").string(), dbg.masknet.proj_e2d_l_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "06a_sa_out.txt").string(), dbg.masknet.sa_ln_out);  // SA+Residual+LN1 (for HLS)
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "06b_ca_out.txt").string(), dbg.masknet.ca_ln_out);  // CA+Residual+LN2 (for HLS)
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "07_decoder_out.txt").string(), dbg.masknet.decoder_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "08_proj_d2e_out.txt").string(), dbg.masknet.proj_d2e_out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "09_mask.txt").string(), dbg.masknet.mask);
 
                 // Post-mask
-                dump_tensor_to_file((fs::path(dump_dir) / "10_masked.txt").string(), dbg.masked);
-                dump_tensor_to_file((fs::path(dump_dir) / "11_with_buf.txt").string(), dbg.with_buf);
-                dump_tensor_to_file((fs::path(dump_dir) / "12_output.txt").string(), dbg.out);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "10_masked.txt").string(), dbg.masked);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "11_with_buf.txt").string(), dbg.with_buf);
+                dump_tensor_to_file((fs::path(chunk_dump_dir) / "12_output.txt").string(), dbg.out);
             }
 
             // Convert to 1D
